@@ -1,7 +1,9 @@
 package demo.jdbc;
 
+import demo.jdbc.dao.HibernateStudentDao;
 import demo.jdbc.dao.StudentDao;
 import demo.jdbc.model.Student;
+import demo.jdbc.model.orm.StudentEntity;
 import demo.jdbc.web.JsonUtil;
 import demo.jdbc.web.dto.StudentCreateRequest;
 import demo.jdbc.web.dto.StudentUpdateRequest;
@@ -38,6 +40,7 @@ public class App {
         get("/health", (req, res) -> JsonUtil.toJson(Map.of("ok", true)));
 
         StudentDao dao = new StudentDao();
+        String localhost = "http://localhost:8080";
 
         // === CRUD - REST API via Spark ===
 
@@ -96,8 +99,7 @@ public class App {
             Student created = dao.save(body.fullName, body.email, body.age);
             res.status(201);
 
-            String prefix = "http://localhost:8080";
-            res.header("Location", prefix + "/students/" + created.id());
+            res.header("Location", localhost + "/students/" + created.id());
 
             return JsonUtil.toJson(created);
         });
@@ -153,6 +155,90 @@ public class App {
             res.type("application/json");
             res.status(500);
             res.body(JsonUtil.toJson(Map.of("error", "Internal Server Error", "message", e.getMessage())));
+        });
+
+
+        // === CRUD via Hibernate ORM ===
+        HibernateStudentDao hdao = new HibernateStudentDao();
+
+        // Get all / filter by email
+        get("/orm/students", (req, res) -> {
+            String email = req.queryParams("email");
+            if (email != null && !email.isBlank()) {
+                return hdao.findByEmail(email)
+                        .<Object>map(JsonUtil::toJson)
+                        .orElseGet(() -> {
+                            res.status(404);
+                            return JsonUtil.toJson(Map.of("error","Not found"));
+                        });
+            }
+            var list = hdao.findAll();
+            return JsonUtil.toJson(list);
+        });
+
+        // Get by id
+        get("/orm/students/:id", (req, res) -> {
+            try {
+                UUID id = UUID.fromString(req.params(":id"));
+                return hdao.findById(id)
+                        .<Object>map(JsonUtil::toJson)
+                        .orElseGet(() -> {
+                            res.status(404);
+                            return JsonUtil.toJson(Map.of("error","Not found"));
+                        });
+            } catch (IllegalArgumentException ex) {
+                res.status(400);
+                return JsonUtil.toJson(Map.of("error","Invalid UUID"));
+            }
+        });
+
+        // Create
+        post("/orm/students", (req, res) -> {
+            var body = JsonUtil.fromJson(req.body(), StudentCreateRequest.class);
+
+            List<String> errors = new ArrayList<>();
+            if (body.fullName == null || body.fullName.isBlank()) errors.add("fullName is required");
+            if (body.email == null || !body.email.contains("@")) errors.add("email is invalid");
+            if (body.age == null || body.age < 16) errors.add("age must be >= 16");
+            if (!errors.isEmpty()) { res.status(400); return JsonUtil.toJson(Map.of("errors", errors)); }
+
+            if (hdao.existsByEmail(body.email)) { res.status(400); return JsonUtil.toJson(Map.of("error", "email already exists")); }
+
+            StudentEntity created = hdao.save(body.fullName, body.email, body.age);
+            res.status(201);
+            res.header("Location", localhost + "/orm/students/" + created.getId());
+            return JsonUtil.toJson(created);
+        });
+
+        // Update
+        put("/orm/students/:id", (req, res) -> {
+            UUID id;
+            try { id = UUID.fromString(req.params(":id")); }
+            catch (IllegalArgumentException ex) { res.status(400); return JsonUtil.toJson(Map.of("error","Invalid UUID")); }
+
+            var body = JsonUtil.fromJson(req.body(), StudentUpdateRequest.class);
+
+            List<String> errors = new ArrayList<>();
+            if (body.fullName == null || body.fullName.isBlank()) errors.add("fullName is required");
+            if (body.age == null || body.age < 16) errors.add("age must be >= 16");
+            if (!errors.isEmpty()) { res.status(400); return JsonUtil.toJson(Map.of("errors", errors)); }
+
+            if (hdao.findById(id).isEmpty()) { res.status(404); return JsonUtil.toJson(Map.of("error","Not found")); }
+
+            StudentEntity updated = hdao.update(id, body.fullName, body.age);
+            return JsonUtil.toJson(updated);
+        });
+
+        // Delete
+        delete("/orm/students/:id", (req, res) -> {
+            try {
+                UUID id = UUID.fromString(req.params(":id"));
+                boolean ok = hdao.deleteById(id);
+                if (!ok) { res.status(404); return JsonUtil.toJson(Map.of("error","Not found")); }
+                res.status(204); return "";
+            } catch (IllegalArgumentException ex) {
+                res.status(400); return JsonUtil.toJson(Map.of("error","Invalid UUID"));
+            }
         });
     }
 }
