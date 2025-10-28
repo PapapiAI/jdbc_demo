@@ -25,6 +25,9 @@ public class StudentEntity {
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
+    private Instant updatedAt;
+
     public UUID getId() {
         return id;
     }
@@ -43,6 +46,10 @@ public class StudentEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 
     public void setId(UUID id) {

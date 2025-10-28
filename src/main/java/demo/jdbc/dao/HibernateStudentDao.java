@@ -91,9 +91,10 @@ public class HibernateStudentDao {
             student.setFullName(fullName);
             student.setAge(age);
 
-            // student entity đã được đưa vào session bởi session.get(StudentEntity.class, id)
-            // -> hibernate theo dõi trạng thái của student
-            // -> khi commit() sẽ tự động gọi Session.flush(), nếu student có thay đổi thì tự sinh SQL INSERT
+            // Cần refresh() để select lại student ở DB với trigger updated_at
+            session.flush();
+            session.refresh(student);
+
             transaction.commit();
             return student;
         } catch (Exception e) {
