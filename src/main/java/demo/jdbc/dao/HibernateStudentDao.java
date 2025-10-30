@@ -37,6 +37,7 @@ public class HibernateStudentDao {
             );
             query.setParameter("email", email);
 
+            // email constraint: unique
             return query.uniqueResultOptional();
         }
     }
@@ -48,7 +49,6 @@ public class HibernateStudentDao {
             );
             query.setParameter("email", email);
 
-            // query.getSingleResult(): dùng khi kết quả query DB chắc chắn trả về ít nhất 1 bản ghi, ví dụ select count()
             return query.getSingleResult() > 0;
         }
     }
@@ -63,12 +63,7 @@ public class HibernateStudentDao {
             student.setEmail(email);
             student.setAge(age);
 
-            // Ở class StudentEntity, cần Hibernate tự động sinh id
-            // nếu không Hibernate sẽ insert vào bảng students ở DB với id là null -> xung đột DB
-            // -> khiến Hibernate ném lỗi "LogicalConnectionManagedImpl … is closed” khi cố thực hiện session.persist(student)
             session.persist(student);
-
-            // Cần refresh() để select lại student ở DB với created_at = now()
             session.flush();
             session.refresh(student);
 
@@ -91,7 +86,6 @@ public class HibernateStudentDao {
             student.setFullName(fullName);
             student.setAge(age);
 
-            // Cần refresh() để select lại student ở DB với trigger updated_at
             session.flush();
             session.refresh(student);
 

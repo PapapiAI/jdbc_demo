@@ -9,6 +9,7 @@ public class HibernateUtil {
     private static SessionFactory buildSessionFactory() {
         try {
             Configuration config = new Configuration().configure();
+            System.out.println(">>> Starting... building SessionFactory");
             return config.buildSessionFactory();
         } catch (Exception e) {
             throw new RuntimeException("Failed to build SessionFactory", e);
@@ -23,5 +24,6 @@ public class HibernateUtil {
 
     public static void closeSession() {
         sessionFactory.close();
+        System.out.println(">>> Shutting down... closed SessionFactory");
     }
 }

@@ -4,6 +4,7 @@ import demo.jdbc.dao.HibernateStudentDao;
 import demo.jdbc.dao.StudentDao;
 import demo.jdbc.model.Student;
 import demo.jdbc.model.orm.StudentEntity;
+import demo.jdbc.orm.HibernateUtil;
 import demo.jdbc.web.JsonUtil;
 import demo.jdbc.web.dto.StudentCreateRequest;
 import demo.jdbc.web.dto.StudentUpdateRequest;
@@ -15,6 +16,9 @@ import java.util.*;
 public class App {
     public static void main(String[] args) {
         port(8080);
+
+        // Register shutdown hook (when app stop) for closing SessionFactory
+        Runtime.getRuntime().addShutdownHook(new Thread(HibernateUtil::closeSession));
 
         // Middleware: JSON & CORS
         after((req, res) -> res.type("application/json"));
@@ -223,10 +227,12 @@ public class App {
             if (body.age == null || body.age < 16) errors.add("age must be >= 16");
             if (!errors.isEmpty()) { res.status(400); return JsonUtil.toJson(Map.of("errors", errors)); }
 
-            if (hdao.findById(id).isEmpty()) { res.status(404); return JsonUtil.toJson(Map.of("error","Not found")); }
-
-            StudentEntity updated = hdao.update(id, body.fullName, body.age);
-            return JsonUtil.toJson(updated);
+            try {
+                StudentEntity updated = hdao.update(id, body.fullName, body.age);
+                return JsonUtil.toJson(updated);
+            } catch (RuntimeException ex) {
+                res.status(404); return JsonUtil.toJson(Map.of("error","Not found"));
+            }
         });
 
         // Delete
